@@ -15,28 +15,64 @@ final class TintView: NSView {
 }
 
 final class FloatingPanel: NSPanel {
+    var onHide: (() -> Void)?
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+    override func orderOut(_ sender: Any?) {
+        super.orderOut(sender)
+        onHide?()
+    }
+    override func close() {
+        super.close()
+        onHide?()
+    }
 }
 
 final class OrbView: NSView {
     var onClick: (() -> Void)?
+    var isEditorVisible = false { didSet { updateOpacity() } }
+    private var isHovered = false
+    private var isPressed = false
+    private var hoverTracking: NSTrackingArea?
     private var start = NSPoint.zero
     private var origin = NSPoint.zero
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let hoverTracking { removeTrackingArea(hoverTracking) }
+        let tracking = NSTrackingArea(rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self)
+        addTrackingArea(tracking)
+        hoverTracking = tracking
+        if let window {
+            isHovered = bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
+        }
+        updateOpacity()
+    }
+    override func mouseEntered(with event: NSEvent) { isHovered = true; updateOpacity() }
+    override func mouseExited(with event: NSEvent) { isHovered = false; updateOpacity() }
+    private func updateOpacity() {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            window?.animator().alphaValue = (isHovered || isPressed || isEditorVisible) ? 1 : 0.35
+        }
+    }
     override func draw(_ dirtyRect: NSRect) {
         NSColor(calibratedWhite: 0.12, alpha: 0.82).setFill()
         NSBezierPath(ovalIn: bounds.insetBy(dx: 2, dy: 2)).fill()
         NSColor.white.withAlphaComponent(0.45).setStroke()
         let ring = NSBezierPath(ovalIn: bounds.insetBy(dx: 3, dy: 3))
-        ring.lineWidth = 1.5
+        ring.lineWidth = 1
         ring.stroke()
         let text = "</>" as NSString
-        text.draw(at: NSPoint(x: 12, y: 17), withAttributes: [
-            .font: NSFont.monospacedSystemFont(ofSize: 19, weight: .semibold),
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 14, weight: .semibold),
             .foregroundColor: NSColor.white
-        ])
+        ]
+        let size = text.size(withAttributes: attributes)
+        text.draw(at: NSPoint(x: (bounds.width - size.width) / 2, y: (bounds.height - size.height) / 2), withAttributes: attributes)
     }
     override func mouseDown(with event: NSEvent) {
+        isPressed = true
+        updateOpacity()
         start = NSEvent.mouseLocation
         origin = window?.frame.origin ?? .zero
     }
@@ -47,6 +83,11 @@ final class OrbView: NSView {
     override func mouseUp(with event: NSEvent) {
         let point = NSEvent.mouseLocation
         if hypot(point.x - start.x, point.y - start.y) < 4 { onClick?() }
+        isPressed = false
+        if let window {
+            isHovered = bounds.contains(convert(window.mouseLocationOutsideOfEventStream, from: nil))
+        }
+        updateOpacity()
     }
 }
 
@@ -81,6 +122,7 @@ final class CodeView: NSTextView {
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
     var orb: FloatingPanel!
+    let orbButton = OrbView(frame: NSRect(x: 0, y: 0, width: 44, height: 44))
     var pad: FloatingPanel!
     var editor: CodeView!
     var status: NSTextField!
@@ -97,12 +139,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
         makeMenu()
         makePad()
         let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1200, height: 800)
-        orb = FloatingPanel(contentRect: NSRect(x: screen.maxX - 86, y: screen.midY, width: 58, height: 58), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        orb = FloatingPanel(contentRect: NSRect(x: screen.maxX - 72, y: screen.midY, width: 44, height: 44), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         configure(orb)
-        let button = OrbView(frame: NSRect(x: 0, y: 0, width: 58, height: 58))
-        button.toolTip = "Click for GlassPad · Drag to move"
-        button.onClick = { [weak self] in self?.toggle() }
-        orb.contentView = button
+        orbButton.toolTip = "Click for GlassPad · Drag to move"
+        orbButton.onClick = { [weak self] in self?.toggle() }
+        orb.contentView = orbButton
+        orb.alphaValue = 0.35
         orb.orderFrontRegardless()
         toggle()
     }
@@ -132,6 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
     func makePad() {
         pad = FloatingPanel(contentRect: NSRect(x: 200, y: 200, width: 560, height: 420), styleMask: [.titled, .closable, .resizable, .fullSizeContentView, .nonactivatingPanel], backing: .buffered, defer: false)
         configure(pad)
+        pad.onHide = { [weak self] in self?.orbButton.isEditorVisible = false }
         pad.title = "GlassPad"
         pad.titleVisibility = .hidden
         pad.titlebarAppearsTransparent = true
@@ -229,11 +272,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
             pad.setFrameOrigin(NSPoint(x: x, y: y))
         }
         pad.makeKeyAndOrderFront(nil)
+        orbButton.isEditorVisible = true
         pad.makeFirstResponder(editor)
     }
     @objc func resetOrb() {
         guard let area = NSScreen.main?.visibleFrame else { return }
-        orb.setFrameOrigin(NSPoint(x: area.maxX - 86, y: area.midY))
+        orb.setFrameOrigin(NSPoint(x: area.maxX - 72, y: area.midY))
         orb.orderFrontRegardless()
     }
     @objc func changeOpacity(_ sender: NSSlider) {

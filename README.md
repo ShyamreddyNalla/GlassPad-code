@@ -6,6 +6,8 @@ A private, native macOS floating code notepad. No account, server, or publicatio
 
 Open `build/GlassPad.app`. Click the floating **</>** button to show or hide your note. Drag the button to move it. Drag the top of the notepad to move it, and drag a window edge to resize it.
 
+The compact 44-point button fades to 35% opacity while the notepad is hidden. Hovering, dragging, or opening the notepad restores full visibility.
+
 - Change the language menu for basic syntax coloring.
 - Kotlin mode colors keywords, built-in types, annotations, numbers, function calls, strings (including triple-quoted strings), and comments.
 - Move the Opacity slider to adjust the dark glass background. Text and controls remain fully visible, with a minimum tint for readability over white windows.
