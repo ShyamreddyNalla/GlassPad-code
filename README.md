@@ -8,7 +8,7 @@ Open `build/GlassPad.app`. Click the floating **</>** button to show or hide you
 
 - Change the language menu for basic syntax coloring.
 - Kotlin mode colors keywords, built-in types, annotations, numbers, function calls, strings (including triple-quoted strings), and comments.
-- Move the Opacity slider to adjust transparency. Text becomes more transparent too.
+- Move the Opacity slider to adjust the dark glass background. Text and controls remain fully visible, with a minimum tint for readability over white windows.
 - Tab inserts four spaces; Return keeps the current indentation.
 - Standard copy, paste, select-all, undo, and redo shortcuts work.
 - Escape or Command-W hides the notepad; the floating button remains.

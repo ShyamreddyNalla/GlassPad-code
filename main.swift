@@ -1,5 +1,19 @@
 import Cocoa
 
+enum CodeColors {
+    static let comment = NSColor(srgbRed: 0.75, green: 0.79, blue: 0.84, alpha: 1)
+    static let keyword = NSColor(srgbRed: 1, green: 0.57, blue: 0.76, alpha: 1)
+    static let string = NSColor(srgbRed: 0.66, green: 0.9, blue: 0.62, alpha: 1)
+    static let number = NSColor(srgbRed: 1, green: 0.77, blue: 0.52, alpha: 1)
+    static let function = NSColor(srgbRed: 0.52, green: 0.85, blue: 1, alpha: 1)
+    static let type = NSColor(srgbRed: 0.58, green: 0.91, blue: 0.86, alpha: 1)
+    static let annotation = NSColor(srgbRed: 1, green: 0.88, blue: 0.6, alpha: 1)
+}
+
+final class TintView: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
 final class FloatingPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
@@ -73,6 +87,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
     var language: NSPopUpButton!
     var menuItem: NSStatusItem!
     var highlightTimer: Timer?
+    let backgroundTint = TintView()
     let font = NSFont.monospacedSystemFont(ofSize: 14, weight: .regular)
     let fileURL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("GlassPad/note.txt")
@@ -134,6 +149,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
         glass.layer?.masksToBounds = true
         glass.appearance = NSAppearance(named: .darkAqua)
         pad.contentView = glass
+        pad.appearance = glass.appearance
+        backgroundTint.wantsLayer = true
+        backgroundTint.translatesAutoresizingMaskIntoConstraints = false
+        glass.addSubview(backgroundTint)
+        NSLayoutConstraint.activate([
+            backgroundTint.leadingAnchor.constraint(equalTo: glass.leadingAnchor),
+            backgroundTint.trailingAnchor.constraint(equalTo: glass.trailingAnchor),
+            backgroundTint.topAnchor.constraint(equalTo: glass.topAnchor),
+            backgroundTint.bottomAnchor.constraint(equalTo: glass.bottomAnchor)
+        ])
 
         let title = NSTextField(labelWithString: "GLASSPAD")
         title.font = .systemFont(ofSize: 11, weight: .semibold)
@@ -143,15 +168,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
         language.selectItem(withTitle: UserDefaults.standard.string(forKey: "language") ?? "JavaScript")
         language.target = self
         language.action = #selector(changeLanguage)
-        let opacity = NSSlider(value: UserDefaults.standard.object(forKey: "opacity") as? Double ?? 0.94, minValue: 0.35, maxValue: 1, target: self, action: #selector(changeOpacity(_:)))
-        opacity.toolTip = "Window transparency"
-        pad.alphaValue = opacity.doubleValue
+        let opacity = NSSlider(value: UserDefaults.standard.object(forKey: "backgroundOpacity") as? Double ?? 0.8, minValue: 0.35, maxValue: 1, target: self, action: #selector(changeOpacity(_:)))
+        opacity.toolTip = "Background opacity · Text stays fully visible"
+        updateBackground(opacity.doubleValue)
         let opacityLabel = NSTextField(labelWithString: "Opacity")
         opacityLabel.font = .systemFont(ofSize: 10)
-        opacityLabel.textColor = .secondaryLabelColor
+        opacityLabel.textColor = CodeColors.comment
         status = NSTextField(labelWithString: "Saved locally · Esc to hide")
         status.font = .systemFont(ofSize: 10)
-        status.textColor = .secondaryLabelColor
+        status.textColor = CodeColors.comment
 
         let scroll = NSScrollView()
         scroll.hasVerticalScroller = true
@@ -212,8 +237,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
         orb.orderFrontRegardless()
     }
     @objc func changeOpacity(_ sender: NSSlider) {
-        pad.alphaValue = sender.doubleValue
-        UserDefaults.standard.set(sender.doubleValue, forKey: "opacity")
+        updateBackground(sender.doubleValue)
+        UserDefaults.standard.set(sender.doubleValue, forKey: "backgroundOpacity")
+    }
+    func updateBackground(_ value: Double) {
+        // Keep enough dark tint for readable code even over a pure-white window.
+        let fraction = (min(1, max(0.35, value)) - 0.35) / 0.65
+        backgroundTint.layer?.backgroundColor = NSColor(srgbRed: 0.055, green: 0.065, blue: 0.085, alpha: 0.72 + 0.24 * fraction).cgColor
     }
     @objc func changeLanguage() {
         UserDefaults.standard.set(language.titleOfSelectedItem, forKey: "language")
@@ -240,11 +270,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
             highlightKotlin(storage, range: full)
         } else if language.titleOfSelectedItem != "Plain text" {
             let rules: [(String, NSColor)] = [
-                (#"\b(?:func|function|let|var|const|class|struct|enum|import|from|def|return|if|else|for|while|in|of|switch|case|break|continue|async|await|try|catch|throw|throws|new|export|default|public|private|static|true|false|null|nil|None|True|False|self|this)\b"#, .systemPink),
-                (#"\b\d+(?:\.\d+)?\b"#, .systemOrange),
-                (#"\b[A-Za-z_][A-Za-z_0-9]*(?=\s*\()"#, .systemCyan),
-                (#""(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`"#, .systemGreen),
-                (language.titleOfSelectedItem == "Python" ? #"(?m)#.*$"# : #"(?m)//.*$|/\*[\s\S]*?\*/"#, .systemGray)
+                (#"\b(?:func|function|let|var|const|class|struct|enum|import|from|def|return|if|else|for|while|in|of|switch|case|break|continue|async|await|try|catch|throw|throws|new|export|default|public|private|static|true|false|null|nil|None|True|False|self|this)\b"#, CodeColors.keyword),
+                (#"\b\d+(?:\.\d+)?\b"#, CodeColors.number),
+                (#"\b[A-Za-z_][A-Za-z_0-9]*(?=\s*\()"#, CodeColors.function),
+                (#""(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`"#, CodeColors.string),
+                (language.titleOfSelectedItem == "Python" ? #"(?m)#.*$"# : #"(?m)//.*$|/\*[\s\S]*?\*/"#, CodeColors.comment)
             ]
             for (pattern, color) in rules {
                 guard let expression = try? NSRegularExpression(pattern: pattern) else { continue }
@@ -260,14 +290,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSTextViewDelegate {
     func highlightKotlin(_ storage: NSTextStorage, range: NSRange) {
         // Tokenize strings and comments first so their contents keep their color.
         let tokens: [(String, NSColor)] = [
-            (#"//[^\n]*|/\*[\s\S]*?(?:\*/|\z)"#, .systemGray),
-            (#"\"\"\"[\s\S]*?(?:\"\"\"|\z)|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'"#, .systemGreen),
+            (#"//[^\n]*|/\*[\s\S]*?(?:\*/|\z)"#, CodeColors.comment),
+            (#"\"\"\"[\s\S]*?(?:\"\"\"|\z)|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'"#, CodeColors.string),
             (#"`[^`\n]*`"#, .white),
-            (#"@[A-Za-z_][A-Za-z_0-9]*(?::[A-Za-z_][A-Za-z_0-9]*)?"#, .systemYellow),
-            (#"\b(?:as|break|class|continue|do|else|false|for|fun|if|in|interface|is|null|object|package|return|super|this|throw|true|try|typealias|typeof|val|var|when|while|by|catch|constructor|delegate|dynamic|field|file|finally|get|import|init|param|property|receiver|set|setparam|where|actual|abstract|annotation|companion|const|crossinline|data|enum|expect|external|final|infix|inline|inner|internal|lateinit|noinline|open|operator|out|override|private|protected|public|reified|sealed|suspend|tailrec|vararg|value)\b"#, .systemPink),
-            (#"\b(?:Any|Unit|Nothing|String|Char|Boolean|Byte|Short|Int|Long|Float|Double|UByte|UShort|UInt|ULong|Array|List|MutableList|Set|MutableSet|Map|MutableMap|Sequence|Pair|Triple)\b"#, .systemTeal),
-            (#"\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][+-]?\d[\d_]*)?)[uU]?[lLfF]?\b"#, .systemOrange),
-            (#"\b[A-Za-z_][A-Za-z_0-9]*(?=\s*\()"#, .systemCyan)
+            (#"@[A-Za-z_][A-Za-z_0-9]*(?::[A-Za-z_][A-Za-z_0-9]*)?"#, CodeColors.annotation),
+            (#"\b(?:as|break|class|continue|do|else|false|for|fun|if|in|interface|is|null|object|package|return|super|this|throw|true|try|typealias|typeof|val|var|when|while|by|catch|constructor|delegate|dynamic|field|file|finally|get|import|init|param|property|receiver|set|setparam|where|actual|abstract|annotation|companion|const|crossinline|data|enum|expect|external|final|infix|inline|inner|internal|lateinit|noinline|open|operator|out|override|private|protected|public|reified|sealed|suspend|tailrec|vararg|value)\b"#, CodeColors.keyword),
+            (#"\b(?:Any|Unit|Nothing|String|Char|Boolean|Byte|Short|Int|Long|Float|Double|UByte|UShort|UInt|ULong|Array|List|MutableList|Set|MutableSet|Map|MutableMap|Sequence|Pair|Triple)\b"#, CodeColors.type),
+            (#"\b(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|\d[\d_]*(?:\.\d[\d_]*)?(?:[eE][+-]?\d[\d_]*)?)[uU]?[lLfF]?\b"#, CodeColors.number),
+            (#"\b[A-Za-z_][A-Za-z_0-9]*(?=\s*\()"#, CodeColors.function)
         ]
         let pattern = tokens.map { "(" + $0.0 + ")" }.joined(separator: "|")
         guard let expression = try? NSRegularExpression(pattern: pattern) else { return }
