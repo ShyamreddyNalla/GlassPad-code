@@ -1,6 +1,8 @@
 # GlassPad
 
-A private, native macOS floating code notepad. No account, server, or publication required.
+A private, native macOS floating code notepad. 
+
+I wanted a quick way to take notes while browsing or watching something, without opening another app or switching between windows and browser tabs. So I built GlassPad—a small floating notepad that stays on screen, ready whenever I need it. It works for everyday notes and code snippets, with syntax highlighting for coding. Everything saves locally on my Mac.
 
 ## Try it
 
