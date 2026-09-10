@@ -27,3 +27,10 @@ This prototype edits one note, with basic pattern-based syntax highlighting. It 
 ## Rebuild
 
 Run `zsh build.sh` from this folder with Apple's Command Line Tools installed. The build is locally signed for private testing and is not notarized or published.
+
+
+<img width="1150" height="726" alt="Screenshot 2026-09-09 at 10 03 38 PM" src="https://github.com/user-attachments/assets/f043ebe3-f819-44e8-8cc1-2e65b802460b" />
+
+<img width="893" height="602" alt="Screenshot 2026-09-09 at 10 03 47 PM" src="https://github.com/user-attachments/assets/46f8bf87-66d3-4526-8a82-e3a1298633ef" />
+
+
